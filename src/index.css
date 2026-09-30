@@ -1,0 +1,35 @@
+:root {
+  font-family: Inter, 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
+  color: #213b35;
+  background: #f3f7f5;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --bg: #f3f7f5;
+  --surface: #ffffff;
+  --surface-raised: #f7faf8;
+  --border: #dce8e2;
+  --text: #213b35;
+  --muted: #637b74;
+  --accent: #3b8874;
+  --accent-strong: #2f7865;
+  --blue: #507b78;
+  --mono: 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { width: 100%; height: 100%; min-width: 320px; margin: 0; }
+body { overflow: hidden; }
+button, input, select { font: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+::selection { background: rgba(59, 136, 116, .2); }
+* { scrollbar-color: #a9c5b9 #edf3ef; scrollbar-width: thin; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: #edf3ef; }
+*::-webkit-scrollbar-thumb { background: #a9c5b9; border: 2px solid #edf3ef; border-radius: 99px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
