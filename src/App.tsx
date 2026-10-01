@@ -368,12 +368,12 @@ function blockToInstruction(block: Blockly.Block): any | null {
     case "oled_print_text": {
       const line = parseInt(block.getFieldValue("LINE"), 10);
       const t = block.getFieldValue("TEXT") || "";
-      return { type: "oled_print", line, size: "Big", mode: "text", text: t };
+      return { type: "oled_print", line, size: "big", mode: "text", text: t };
     }
     case "oled_print_num": {
       const line = parseInt(block.getFieldValue("LINE"), 10);
       const v = blockToExpr(block.getInputTargetBlock("VAL")) || num0();
-      return { type: "oled_print", line, size: "Big", mode: "number", value: v };
+      return { type: "oled_print", line, size: "big", mode: "number", value: v };
     }
     case "oled_clear":
       return { type: "oled_clear" };
@@ -810,7 +810,7 @@ function App() {
             { type: "input_value", name: "B", check: "Number" },
           ],
           inputsInline: true, output: "Number", colour: 240,
-          tooltip: "Smaller of two values.",
+          tooltip: "smaller of two values.",
         },
         {
           type: "math_max_custom", message0: "max %1 %2",
@@ -853,11 +853,11 @@ function App() {
             { type: "field_dropdown", name: "LINE",
               options: [["1","1"],["2","2"],["3","3"],["4","4"]] },
             { type: "field_dropdown", name: "SIZE",
-              options: [["Big","Big"],["Small","Small"]] },
+              options: [["big","big"],["small","small"]] },
             { type: "field_input", name: "TEXT", text: "Hello" },
           ],
           previousStatement: null, nextStatement: null,
-          colour: 300, tooltip: "Display text on OLED line 1-4 (Big or Small).",
+          colour: 300, tooltip: "Display text on OLED line 1-4 (big or small).",
         },
         {
           type: "oled_print_num_sized",
@@ -866,11 +866,11 @@ function App() {
             { type: "field_dropdown", name: "LINE",
               options: [["1","1"],["2","2"],["3","3"],["4","4"]] },
             { type: "field_dropdown", name: "SIZE",
-              options: [["Big","Big"],["Small","Small"]] },
+              options: [["big","big"],["small","small"]] },
             { type: "input_value", name: "VAL", check: "Number" },
           ],
           previousStatement: null, nextStatement: null,
-          colour: 300, tooltip: "Display a number on OLED line 1-4 (Big or Small).",
+          colour: 300, tooltip: "Display a number on OLED line 1-4 (big or small).",
         },
         {
           type: "oled_emoji", message0: "OLED emoji %1",
