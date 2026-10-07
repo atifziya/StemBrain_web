@@ -573,7 +573,7 @@ function App() {
   const wsRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const [json, setJson] = useState("");
   const [userReady, setUserReady] = useState(false);
-  const [deviceId, setDeviceId] = useState("STEMBRAIN_91F8");
+  const [deviceId, setDeviceId] = useState("STEMBRAIN_");
   const [projectName, setProjectName] = useState("My Program");
   const [connState, setConnState] = useState<"idle" | "checking" | "online" | "offline">("idle");
   const [status, setStatus] = useState("");
