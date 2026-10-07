@@ -59,8 +59,8 @@ const bleSendB = (text: string) => ({
   type: "ble_send_text", fields: { TEXT: text },
 });
 const bleRecvB = () => ({ type: "ble_recv" });
-const printValueB = (value: any) => ({
-  type: "print_num", inputs: { VAL: { block: value } },
+const ValueB = (value: any) => ({
+  type: "_num", inputs: { VAL: { block: value } },
 });
 
 const cmpB = (op: string, a: any, b: any) => ({
@@ -178,8 +178,8 @@ const EXAMPLES: { id: string; name: string; ws: any; description?: string }[] = 
   {
     id: "light-level-monitor",
     name: "10. Light Level Monitor (Serial)",
-    description: "Reads the LDR on Port 3A, prints each reading, and waits 500 ms before the next sample.",
-    ws: foreverB(chain([printValueB(ldrB("3A")), waitB(500)])),
+    description: "Reads the LDR on Port 3A, s each reading, and waits 500 ms before the next sample.",
+    ws: foreverB(chain([ValueB(ldrB("3A")), waitB(500)])),
   },
 ];
 
@@ -365,29 +365,29 @@ function blockToInstruction(block: Blockly.Block): any | null {
     case "controls_if": {
       return serializeIfBlock(block, 0);
     }
-    case "oled_print_text": {
+    case "oled__text": {
       const line = parseInt(block.getFieldValue("LINE"), 10);
       const t = block.getFieldValue("TEXT") || "";
-      return { type: "oled_print", line, size: "big", mode: "text", text: t };
+      return { type: "oled_", line, size: "big", mode: "text", text: t };
     }
-    case "oled_print_num": {
+    case "oled__num": {
       const line = parseInt(block.getFieldValue("LINE"), 10);
       const v = blockToExpr(block.getInputTargetBlock("VAL")) || num0();
-      return { type: "oled_print", line, size: "big", mode: "number", value: v };
+      return { type: "oled_", line, size: "big", mode: "number", value: v };
     }
     case "oled_clear":
       return { type: "oled_clear" };
-    case "oled_print_text_sized": {
+    case "oled__text_sized": {
       const line = parseInt(block.getFieldValue("LINE"), 10);
       const size = block.getFieldValue("SIZE");
       const t = block.getFieldValue("TEXT") || "";
-      return { type: "oled_print", line, size, mode: "text", text: t };
+      return { type: "oled_", line, size, mode: "text", text: t };
     }
-    case "oled_print_num_sized": {
+    case "oled__num_sized": {
       const line = parseInt(block.getFieldValue("LINE"), 10);
       const size = block.getFieldValue("SIZE");
       const v = blockToExpr(block.getInputTargetBlock("VAL")) || num0();
-      return { type: "oled_print", line, size, mode: "number", value: v };
+      return { type: "oled_", line, size, mode: "number", value: v };
     }
     case "oled_emoji": {
       const emoji = block.getFieldValue("EMOJI");
@@ -415,13 +415,13 @@ function blockToInstruction(block: Blockly.Block): any | null {
       const angle = Number.isFinite(n) ? n : 90;
       return { type: "servo", port, pin, angle: { type: "num", value: angle } };
     }
-    case "print_text": {
+    case "_text": {
       const t = block.getFieldValue("TEXT") || "";
-      return { type: "print", mode: "text", text: t };
+      return { type: "", mode: "text", text: t };
     }
-    case "print_num": {
+    case "_num": {
       const v = blockToExpr(block.getInputTargetBlock("VAL")) || num0();
-      return { type: "print", mode: "number", value: v };
+      return { type: "", mode: "number", value: v };
     }
     case "ble_enable":
       return { type: "ble_enable" };
@@ -465,22 +465,22 @@ const REQUIRED_VALUE_INPUTS: Record<string, string[]> = {
   math_arithmetic: ["A", "B"], math_modulo_custom: ["A", "B"], math_abs_custom: ["A"],
   math_random_custom: ["MIN", "MAX"], math_min_custom: ["A", "B"], math_max_custom: ["A", "B"],
   logic_compare: ["A", "B"], logic_operation: ["A", "B"], logic_negate: ["BOOL"],
-  delay_ms: ["MS"], print_num: ["VAL"], ble_send_num: ["VAL"], repeat_n: ["COUNT"], wait_until: ["COND"],
-  oled_print_num: ["VAL"],
-  oled_print_num_sized: ["VAL"],
+  delay_ms: ["MS"], _num: ["VAL"], ble_send_num: ["VAL"], repeat_n: ["COUNT"], wait_until: ["COND"],
+  oled__num: ["VAL"],
+  oled__num_sized: ["VAL"],
 };
 
 const BLOCK_NAMES: Record<string, string> = {
   math_arithmetic: "Math operation", math_modulo_custom: "Remainder operation", math_abs_custom: "Absolute value",
   math_random_custom: "Random value", math_min_custom: "Minimum value", math_max_custom: "Maximum value",
   logic_compare: "Comparison", logic_operation: "Logic operation", logic_negate: "Negation",
-  delay_ms: "Wait block", print_num: "Print value block", ble_send_num: "BLE send value block",
+  delay_ms: "Wait block", _num: " value block", ble_send_num: "BLE send value block",
   repeat_n: "Repeat block", wait_until: "Wait-until block", sensor_ir: "IR sensor",
   sensor_dht11: "DHT11 sensor", sensor_digital: "Digital sensor", sensor_ultrasonic: "Ultrasonic sensor",
   sensor_ldr: "LDR sensor", sensor_soil: "Soil sensor", sensor_gas: "Gas sensor", sensor_analog: "Analog sensor",
-  oled_print_text: "OLED print text", oled_print_num: "OLED print value", oled_clear: "OLED clear",
-  oled_print_text_sized: "OLED print text (sized)",
-  oled_print_num_sized: "OLED print value (sized)",
+  oled__text: "OLED  text", oled__num: "OLED  value", oled_clear: "OLED clear",
+  oled__text_sized: "OLED  text (sized)",
+  oled__num_sized: "OLED  value (sized)",
   oled_emoji: "OLED emoji",
 };
 const INPUT_NAMES: Record<string, string> = {
@@ -497,7 +497,7 @@ function validateProgram(workspace: Blockly.WorkspaceSvg, deviceId: string): str
   const blocks = workspace.getAllBlocks(false).filter((block) => block.isEnabled());
   const topBlocks = workspace.getTopBlocks(false).filter((block) => block.isEnabled());
   const executableTopTypes = new Set([
-    "motor_control", "led_out", "buzzer_simple", "servo_angle", "print_text", "print_num",
+    "motor_control", "led_out", "buzzer_simple", "servo_angle", "_text", "_num",
     "ble_enable", "ble_send_text", "ble_send_num", "delay_ms", "forever", "run_once",
     "repeat_n", "wait_until", "stop_program", "controls_if",
   ]);
@@ -513,8 +513,8 @@ function validateProgram(workspace: Blockly.WorkspaceSvg, deviceId: string): str
         errors.push(`${blockDisplayName(block)} is missing its ${INPUT_NAMES[inputName] ?? "required value"}.`);
       }
     }
-    if ((block.type === "print_text" || block.type === "ble_send_text") && !block.getFieldValue("TEXT")?.trim()) {
-      errors.push(`${block.type === "print_text" ? "Print text" : "BLE send text"} needs a message.`);
+    if ((block.type === "_text" || block.type === "ble_send_text") && !block.getFieldValue("TEXT")?.trim()) {
+      errors.push(`${block.type === "_text" ? " text" : "BLE send text"} needs a message.`);
     }
     if (block.outputConnection && !block.outputConnection.isConnected() && !block.isShadow() && !block.getParent()) {
       errors.push(`${blockDisplayName(block)} is not connected to a value input.`);
@@ -532,14 +532,14 @@ function validateProgram(workspace: Blockly.WorkspaceSvg, deviceId: string): str
   }
 
   /* M10.15c: OLED line uniqueness — each of the 4 lines can only
-   * be claimed by ONE OLED block (print text/num or emoji). */
+   * be claimed by ONE OLED block ( text/num or emoji). */
   const usedOledLines = new Map<number, string>();
   /* M10.15d: emoji is fullscreen — excluded from line-uniqueness */
   const OLED_BLOCK_TYPES = new Set([
-    "oled_print_text",
-    "oled_print_text_sized",
-    "oled_print_num",
-    "oled_print_num_sized",
+    "oled__text",
+    "oled__text_sized",
+    "oled__num",
+    "oled__num_sized",
   ]);
   for (const block of blocks) {
     if (OLED_BLOCK_TYPES.has(block.type)) {
@@ -700,16 +700,16 @@ function App() {
           colour: 20, tooltip: "Servo angle (0-180).",
         },
         {
-          type: "print_text", message0: "Print text %1",
+          type: "_text", message0: " text %1",
           args0: [{ type: "field_input", name: "TEXT", text: "Hello" }],
           previousStatement: null, nextStatement: null,
-          colour: 290, tooltip: "Print text to serial.",
+          colour: 290, tooltip: " text to serial.",
         },
         {
-          type: "print_num", message0: "Print value %1",
+          type: "_num", message0: " value %1",
           args0: [{ type: "input_value", name: "VAL", check: "Number" }],
           previousStatement: null, nextStatement: null,
-          colour: 290, tooltip: "Print a number to serial.",
+          colour: 290, tooltip: " a number to serial.",
         },
         {
           type: "ble_send_text", message0: "BLE send text %1",
@@ -822,7 +822,7 @@ function App() {
           tooltip: "Larger of two values.",
         },
         {
-          type: "oled_print_text", message0: "OLED line %1 = text %2",
+          type: "oled__text", message0: "OLED line %1 = text %2",
           args0: [
             { type: "field_dropdown", name: "LINE",
               options: [["1","1"],["2","2"],["3","3"],["4","4"]] },
@@ -832,7 +832,7 @@ function App() {
           colour: 300, tooltip: "Display text on OLED line 1-4.",
         },
         {
-          type: "oled_print_num", message0: "OLED line %1 = value %2",
+          type: "oled__num", message0: "OLED line %1 = value %2",
           args0: [
             { type: "field_dropdown", name: "LINE",
               options: [["1","1"],["2","2"],["3","3"],["4","4"]] },
@@ -847,7 +847,7 @@ function App() {
           colour: 300, tooltip: "Clear all 4 OLED lines.",
         },
         {
-          type: "oled_print_text_sized",
+          type: "oled__text_sized",
           message0: "OLED line %1 %2 text %3",
           args0: [
             { type: "field_dropdown", name: "LINE",
@@ -860,7 +860,7 @@ function App() {
           colour: 300, tooltip: "Display text on OLED line 1-4 (big or small).",
         },
         {
-          type: "oled_print_num_sized",
+          type: "oled__num_sized",
           message0: "OLED line %1 %2 value %3",
           args0: [
             { type: "field_dropdown", name: "LINE",
@@ -942,9 +942,9 @@ function App() {
       sensor_gas: 28, sensor_dht11: 28, sensor_digital: 28, sensor_analog: 28,
       led_out: 270, buzzer_simple: 270, servo_angle: 270,
       ble_enable: 185, ble_send_text: 185, ble_send_num: 185, ble_recv: 185, ble_connected: 185,
-      print_text: 150, print_num: 150,
-      oled_print_text: 325, oled_print_num: 325, oled_print_text_sized: 325,
-      oled_print_num_sized: 325, oled_emoji: 325, oled_animate: 325, oled_clear: 325,
+      _text: 150, _num: 150,
+      oled__text: 325, oled__num: 325, oled__text_sized: 325,
+      oled__num_sized: 325, oled_emoji: 325, oled_animate: 325, oled_clear: 325,
       repeat_n: 5, wait_until: 5, stop_program: 5, controls_if: 5,
       logic_compare: 48, logic_operation: 48, logic_negate: 48, bool_true: 48, bool_false: 48,
       math_number: 220, math_arithmetic: 220, math_modulo_custom: 220, math_abs_custom: 220,
@@ -998,11 +998,6 @@ function App() {
               { kind: "block", type: "ble_send_num" },
               { kind: "block", type: "ble_recv" },
               { kind: "block", type: "ble_connected" },
-            ] },
-          { kind: "category", name: "Print", colour: "150",
-            contents: [
-              { kind: "block", type: "print_text" },
-              { kind: "block", type: "print_num" },
             ] },
           { kind: "category", name: "Display", colour: "325",
             contents: [
