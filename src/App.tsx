@@ -36,8 +36,10 @@ const waitB = (ms: number) => ({
   type: "delay_ms",
   inputs: { MS: { block: num(ms) } },
 });
-const motorB = (m: number, dir: string) => ({
-  type: "motor_control", fields: { MOTOR: String(m), DIR: dir },
+const motorB = (m: number, dir: string, speed: number = 100) => ({
+  type: "motor_control",
+  fields: { MOTOR: String(m), DIR: dir },
+  inputs: { SPEED: { block: num(speed) } },
 });
 const buzzerB = (mode: "on" | "off") => ({
   type: "buzzer_simple", fields: { MODE: mode },
@@ -337,7 +339,9 @@ function blockToInstruction(block: Blockly.Block): any | null {
     case "motor_control": {
       const motor = parseInt(block.getFieldValue("MOTOR"), 10);
       const dir = block.getFieldValue("DIR");
-      return { type: "motor", motor, dir };
+      const speed = blockToExpr(block.getInputTargetBlock("SPEED"))
+                    || { type: "num", value: 100 };
+      return { type: "motor", motor, dir, speed };
     }
     case "delay_ms": {
       const ms = blockToExpr(block.getInputTargetBlock("MS")) || num0();
@@ -468,6 +472,7 @@ const REQUIRED_VALUE_INPUTS: Record<string, string[]> = {
   delay_ms: ["MS"], print_num: ["VAL"], ble_send_num: ["VAL"], repeat_n: ["COUNT"], wait_until: ["COND"],
   oled_print_num: ["VAL"],
   oled_print_num_sized: ["VAL"],
+  motor_control: ["SPEED"],
 };
 
 const BLOCK_NAMES: Record<string, string> = {
@@ -599,17 +604,20 @@ function App() {
     if (!Blockly.Blocks['motor_control']) {
 
       Blockly.defineBlocksWithJsonArray([
-        {
-          type: "motor_control", message0: "Motor %1 %2",
-          args0: [
-            { type: "field_dropdown", name: "MOTOR",
-              options: [["1","1"],["2","2"],["3","3"],["4","4"]] },
-            { type: "field_dropdown", name: "DIR",
-              options: [["Forward","fwd"],["Backward","back"],["Stop","stop"]] },
-          ],
-          previousStatement: null, nextStatement: null,
-          colour: 160, tooltip: "Control a motor.",
-        },
+      {
+        type: "motor_control",
+        message0: "Motor %1 %2 at speed %3 %%",
+        args0: [
+          { type: "field_dropdown", name: "MOTOR",
+            options: [["1","1"],["2","2"],["3","3"],["4","4"]] },
+          { type: "field_dropdown", name: "DIR",
+            options: [["Forward","fwd"],["Backward","back"],["Stop","stop"]] },
+          { type: "input_value", name: "SPEED", check: "Number" },
+        ],
+        inputsInline: true,
+        previousStatement: null, nextStatement: null,
+        colour: 160, tooltip: "Control a motor. Speed is 0–100%.",
+      },
         {
           type: "ble_enable", message0: "Enable Bluetooth",
           previousStatement: null, nextStatement: null,
@@ -973,7 +981,13 @@ function App() {
               { kind: "block", type: "delay_ms" },
             ] },
           { kind: "category", name: "Motors", colour: "205",
-            contents: [{ kind: "block", type: "motor_control" }] },
+            contents: [
+              { kind: "block", type: "motor_control",
+                inputs: {
+                  SPEED: { shadow: { type: "math_number", fields: { NUM: 100 } } },
+                },
+              },
+            ] },
           { kind: "category", name: "Sensors", colour: "28",
             contents: [
               { kind: "block", type: "sensor_ultrasonic" },
