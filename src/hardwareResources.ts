@@ -96,7 +96,7 @@ function reserve(keys: string[], blockType: string, occupancy: Occupancy, identi
 function occupiedByOthers(workspace: Blockly.Workspace, block: Blockly.Block): Occupancy {
   const occupancy: Occupancy = new Map();
   for (const other of workspace.getAllBlocks(false)) {
-    if (other.id === block.id || !HARDWARE_RESOURCES[other.type]) continue;
+    if (other.id === block.id || !other.isEnabled() || !HARDWARE_RESOURCES[other.type]) continue;
     reserve(resourceKeys(other), other.type, occupancy);
   }
   return occupancy;
@@ -105,7 +105,12 @@ function occupiedByOthers(workspace: Blockly.Workspace, block: Blockly.Block): O
 function dynamicOptions(block: Blockly.Block, fieldName: string): [string, string][] {
   const definition = HARDWARE_RESOURCES[block.type];
   if (!definition) return [];
-  const occupancy = occupiedByOthers(block.workspace, block);
+  // Blockly dropdown fields are rendered on blocks inside the flyout's
+  // separate workspace. Availability must be calculated against the user's
+  // main workspace, or the flyout would incorrectly advertise occupied ports.
+  const sourceWorkspace = block.workspace as Blockly.WorkspaceSvg;
+  const targetWorkspace = sourceWorkspace.targetWorkspace ?? sourceWorkspace;
+  const occupancy = occupiedByOthers(targetWorkspace, block);
 
   if (fieldName === definition.locationField) {
     const options = SENSOR_LOCATION_OPTIONS.filter(([, value]) =>
@@ -204,7 +209,7 @@ export function reconcileHardwareResources(workspace: Blockly.WorkspaceSvg) {
   Blockly.Events.disable();
   try {
     for (const block of workspace.getAllBlocks(false)) {
-      if (!HARDWARE_RESOURCES[block.type]) continue;
+      if (!block.isEnabled() || !HARDWARE_RESOURCES[block.type]) continue;
       const keys = resourceKeys(block);
       if (!keys.length || !canUse(keys, block.type, occupancy)) {
         const assignment = suggestedAssignment(block, occupancy);
@@ -243,7 +248,7 @@ export function validateHardwareResources(workspace: Blockly.WorkspaceSvg): stri
 
   for (const block of workspace.getAllBlocks(false)) {
     const definition = HARDWARE_RESOURCES[block.type];
-    if (!definition) continue;
+    if (!block.isEnabled() || !definition) continue;
     const keys = resourceKeys(block);
     if (!keys.length) {
       errors.push(`${BLOCK_LABELS[block.type]} needs an available port and pin selection.`);
