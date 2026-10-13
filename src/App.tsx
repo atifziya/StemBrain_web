@@ -65,11 +65,16 @@ const printValueB = (value: any) => ({
   type: "print_num", inputs: { VAL: { block: value } },
 });
 
-const cmpB = (op: string, a: any, b: any) => ({
-  type: "logic_compare",
-  fields: { OP: op },
-  inputs: { A: { block: a }, B: { block: b } },
-});
+const cmpB = (op: string, a: any, b: any) => {
+  const fieldOperator: Record<string, string> = {
+    eq: "EQ", ne: "NEQ", lt: "LT", le: "LTE", gt: "GT", ge: "GTE",
+  };
+  return {
+    type: "logic_compare",
+    fields: { OP: fieldOperator[op] ?? op },
+    inputs: { A: { block: a }, B: { block: b } },
+  };
+};
 
 /* M10.14-fix: controls_if with else uses `extraState.hasElse` */
 const ifB = (cond: any, thenBlocks: any[], elseBlocks?: any[]) => {
@@ -536,30 +541,6 @@ function validateProgram(workspace: Blockly.WorkspaceSvg, deviceId: string): str
     }
   }
 
-  /* M10.15c: OLED line uniqueness — each of the 4 lines can only
-   * be claimed by ONE OLED block (print text/num or emoji). */
-  const usedOledLines = new Map<number, string>();
-  /* M10.15d: emoji is fullscreen — excluded from line-uniqueness */
-  const OLED_BLOCK_TYPES = new Set([
-    "oled_print_text",
-    "oled_print_text_sized",
-    "oled_print_num",
-    "oled_print_num_sized",
-  ]);
-  for (const block of blocks) {
-    if (OLED_BLOCK_TYPES.has(block.type)) {
-      const line = parseInt(block.getFieldValue("LINE"), 10);
-      const blockName = blockDisplayName(block);
-      if (usedOledLines.has(line)) {
-        errors.push(
-          `OLED line ${line} is used by two blocks. Each line can only be used once.`
-        );
-      } else {
-        usedOledLines.set(line, blockName);
-      }
-    }
-  }
-
   return [...new Set(errors)];
 }
 
@@ -578,7 +559,7 @@ function App() {
   const wsRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const [json, setJson] = useState("");
   const [userReady, setUserReady] = useState(false);
-  const [deviceId, setDeviceId] = useState("STEMBRAIN_");
+  const [deviceId, setDeviceId] = useState("STEMBRAIN_91F8");
   const [projectName, setProjectName] = useState("My Program");
   const [connState, setConnState] = useState<"idle" | "checking" | "online" | "offline">("idle");
   const [status, setStatus] = useState("");
@@ -1487,5 +1468,3 @@ function App() {
 }
 
 export default App;
-
-
