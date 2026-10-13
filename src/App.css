@@ -1,4 +1,5 @@
 .app-shell { width: 100%; height: 100dvh; min-height: 0; overflow: hidden; color: var(--text); background: radial-gradient(ellipse at 50% -45%, #e5f2ec 0%, #f5f8f6 62%); }
+.app-shell { display: flex; flex-direction: column; min-width: 0; }
 .app-header { flex: 0 0 auto; min-height: 66px; padding: 13px 22px !important; color: #183b32 !important; background: rgba(255,255,255,.92) !important; border-bottom: 1px solid var(--border); backdrop-filter: blur(18px); box-shadow: 0 5px 18px rgba(27,71,56,.06); }
 .brand-logo { width: 44px; height: 44px; display: block; flex: 0 0 44px; object-fit: contain; filter: drop-shadow(0 3px 6px rgba(36,116,94,.16)); }
 .brand-title { color: #214b3f; font-size: 15px; letter-spacing: -.25px; font-weight: 700; white-space: nowrap; }
@@ -32,6 +33,9 @@
 .toast.error .toast-mark { background: #c65e56; }
 .toast.info .toast-mark { background: #5d8390; }
 .toast-message { padding-top: 1px; font-size: 13px; line-height: 1.5; font-weight: 550; }
+.toast-content { min-width: 0; }
+.toast-details { margin: 7px 0 0; padding-left: 17px; font-size: 12px; line-height: 1.5; color: inherit; }
+.toast-details li + li { margin-top: 3px; }
 .toast-close { width: 24px; height: 24px; flex: 0 0 24px; padding: 0; color: #678076; background: transparent; border: 0; border-radius: 6px; font-size: 19px; line-height: 1; cursor: pointer; }
 .toast-close:hover { color: #294d3f; background: #edf4ef; }
 .toast-close:focus-visible { outline: 2px solid #397e65; outline-offset: 2px; }
@@ -65,6 +69,11 @@
 .ble-toolbar button:nth-child(3) { color: #526961 !important; background: #edf2ef !important; }
 .ble-toolbar label { color: #536b61 !important; }
 .ble-output { color: #435a51 !important; background: #fbfdfb !important; font: 13px/1.7 var(--mono) !important; }
+.ble-output .ble-line.in { color: #28795f; }
+.ble-output .ble-line.out { color: #8b5c2d; }
+.ble-output .ble-line.err { color: #ad4646; }
+.ble-output .ble-line.sys { color: #587168; }
+.ble-output .ble-line-time { color: #879b91; }
 .ble-modal button { min-height: 36px; border-radius: 8px !important; border: 1px solid #dce7e1 !important; transition: filter .15s ease, transform .15s ease; }
 .ble-modal button:hover:not(:disabled) { filter: brightness(.97); transform: translateY(-1px); }
 .ble-modal button:disabled { opacity: .48; }
@@ -81,22 +90,28 @@
   .workspace-frame { padding: 6px; }
 }
 @media (max-width: 620px) {
+  .app-shell { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
   .app-shell { height: 100dvh; }
   .app-header { flex-wrap: wrap; }
   .brand-title { font-size: 13px; }
   .brand-logo { width: 38px; height: 38px; flex-basis: 38px; }
   .project-input { flex: 1; min-width: 130px; width: auto !important; }
   .auth-status { width: 100%; margin-left: 43px !important; font-size: 11px !important; }
+  .theme-toggle { position: absolute; top: max(9px, env(safe-area-inset-top)); right: 10px; flex: 0 0 auto !important; width: 42px; min-height: 40px; padding: 7px !important; }
+  .theme-toggle-label { display: none; }
   .action-bar { display: flex; align-content: flex-start; }
   .action-bar label { width: 100%; }
   .device-input { flex: 1; min-width: 120px; }
-  .app-btn { flex: 1 1 auto; padding: 8px 9px !important; font-size: 12px !important; }
+  .app-btn { flex: 1 1 auto; min-height: 42px; padding: 8px 9px !important; font-size: 12px !important; }
+  .action-bar label[for="device-id"] { width: auto; }
+  .action-bar { max-height: 196px; overflow-y: auto; overscroll-behavior: contain; padding-bottom: max(9px, env(safe-area-inset-bottom)) !important; }
+  .mobile-blocks-toggle { display: inline-flex; justify-content: center; align-items: center; }
   .examples-select { flex: 1 1 44%; }
   .ble-open { flex: 1 1 44%; }
   .state-pill { flex: 0 0 auto; }
   .workspace-frame { min-height: 180px; padding: 4px; }
   .workspace-canvas { border-radius: 8px; }
-  .blocklyToolbox { width: 142px !important; }
+  .blocklyToolbox, .blocklyToolboxDiv { max-width: min(168px, 46vw) !important; }
   .blocklyToolboxCategoryLabel { font-size: 12px !important; }
   .ble-backdrop { padding: 8px !important; }
   .ble-modal { width: 100% !important; height: 100% !important; border-radius: 11px !important; }
@@ -107,6 +122,112 @@
   .ble-toolbar label { margin-left: 0 !important; font-size: 12px !important; }
   .ble-input-row { padding: 9px !important; }
   .toast { top: auto; right: 12px; bottom: 16px; max-width: calc(100vw - 24px); }
+}
+
+/* Theme surfaces share the same tokens, including Blockly's floating DOM UI. */
+:root[data-theme="dark"] .app-shell { color: #e2ebe7; background: radial-gradient(ellipse at 50% -45%, #273b34 0%, #151d1b 65%); }
+:root[data-theme="dark"] .app-header { color: #e2ebe7 !important; background: rgba(31,43,39,.94) !important; border-color: #394944; box-shadow: 0 5px 18px rgba(0,0,0,.2); }
+:root[data-theme="dark"] .brand-title { color: #d9ede3; }
+:root[data-theme="dark"] .brand-title span { color: #a5b6ae !important; }
+:root[data-theme="dark"] .project-input,
+:root[data-theme="dark"] .device-input { color: #e2ebe7 !important; background: #26332f !important; border-color: #485a53 !important; }
+:root[data-theme="dark"] .auth-status { color: #a5b6ae !important; }
+:root[data-theme="dark"] .action-bar { color: #d0ded7; background: rgba(30,41,37,.97) !important; border-color: #394944 !important; box-shadow: 0 3px 10px rgba(0,0,0,.16); }
+:root[data-theme="dark"] .action-bar label { color: #a5b6ae; }
+:root[data-theme="dark"] .app-btn { color: #d5e4dc !important; background: #293832 !important; border-color: #45584f !important; box-shadow: 0 1px 2px rgba(0,0,0,.18); }
+:root[data-theme="dark"] .app-btn:hover:not(:disabled) { color: #f0faf4 !important; background: #34483e !important; border-color: #709b84 !important; }
+:root[data-theme="dark"] .app-btn.primary { color: #10251b !important; background: linear-gradient(135deg,#8bd4b0,#69b995) !important; border-color: transparent !important; }
+:root[data-theme="dark"] .app-btn.primary:hover:not(:disabled) { background: #a0e0bf !important; }
+:root[data-theme="dark"] .examples-select { color: #d0eadb !important; background: #294138 !important; border-color: #456455 !important; }
+:root[data-theme="dark"] .ble-open { color: #d7eee3 !important; background: #29443a !important; border-color: #456455 !important; }
+:root[data-theme="dark"] .state-pill { color: #c0d0c8 !important; background: #34423c !important; }
+:root[data-theme="dark"] .state-pill.checking, :root[data-theme="dark"] .state-pill.uploading, :root[data-theme="dark"] .state-pill.waiting { color: #f2d38d !important; background: #4b4027 !important; }
+:root[data-theme="dark"] .state-pill.stored { color: #a8d0d9 !important; background: #2c4145 !important; }
+:root[data-theme="dark"] .state-pill.activated, :root[data-theme="dark"] .state-pill.online { color: #9be0b6 !important; background: #244336 !important; }
+:root[data-theme="dark"] .state-pill.offline, :root[data-theme="dark"] .state-pill.failed { color: #f1aaa3 !important; background: #4d302e !important; }
+:root[data-theme="dark"] .workspace-canvas { background: #1c2522; border-color: #394944; box-shadow: 0 12px 30px rgba(0,0,0,.24); }
+:root[data-theme="dark"] .blocklyToolbox { background: #202b27 !important; border-color: #394944 !important; }
+:root[data-theme="dark"] .blocklyToolboxCategoryLabel { color: #e1ebe5 !important; }
+:root[data-theme="dark"] .blocklyToolboxCategory:hover { background: #2d3c36; }
+:root[data-theme="dark"] .blocklyMainBackground { fill: #1b2521 !important; stroke: #34443d !important; }
+:root[data-theme="dark"] .blocklyFlyoutBackground { fill: #222f29 !important; }
+:root[data-theme="dark"] .blocklyScrollbarHandle { fill: #60766b !important; }
+:root[data-theme="dark"] .blocklyWidgetDiv .blocklyDropDownDiv,
+:root[data-theme="dark"] .blocklyDropDownDiv,
+:root[data-theme="dark"] .blocklyDropDownDiv .goog-menu { color: #e2ebe7 !important; background: #26332f !important; border-color: #485a53 !important; }
+:root[data-theme="dark"] .blocklyDropDownDiv .goog-menuitem-highlight { background: #35473e !important; }
+:root[data-theme="dark"] .modal-backdrop { background: rgba(4,10,8,.62) !important; }
+:root[data-theme="dark"] .json-modal,
+:root[data-theme="dark"] .ble-modal { color: #e2ebe7 !important; background: #202a27 !important; border-color: #394944 !important; }
+:root[data-theme="dark"] .modal-header,
+:root[data-theme="dark"] .ble-header { color: #e2ebe7 !important; background: #293832 !important; border-color: #394944 !important; }
+:root[data-theme="dark"] .json-content,
+:root[data-theme="dark"] .ble-output { color: #d2e1da !important; background: #19211e !important; }
+:root[data-theme="dark"] .ble-output .ble-line.in { color: #8bd4b0; }
+:root[data-theme="dark"] .ble-output .ble-line.out { color: #e3bd84; }
+:root[data-theme="dark"] .ble-output .ble-line.err { color: #f0a29b; }
+:root[data-theme="dark"] .ble-output .ble-line.sys { color: #bacbc2; }
+:root[data-theme="dark"] .ble-output .ble-line-time { color: #91a59a; }
+:root[data-theme="dark"] .close-btn { color: #e3ede7 !important; background: #3b4842 !important; }
+:root[data-theme="dark"] .ble-header > span:first-of-type { color: #a5e0bb !important; background: #284235 !important; }
+:root[data-theme="dark"] .ble-header > span:nth-of-type(2) { color: #b1c2b9 !important; }
+:root[data-theme="dark"] .ble-header button { color: #ffd0cb !important; background: #503331 !important; }
+:root[data-theme="dark"] .ble-toolbar,
+:root[data-theme="dark"] .ble-input-row { color: #d4e2db !important; background: #252f2b !important; border-color: #394944 !important; }
+:root[data-theme="dark"] .ble-toolbar button { color: #e1eee6 !important; background: #35453d !important; border-color: #495c52 !important; }
+:root[data-theme="dark"] .ble-toolbar button:first-child { background: #327657 !important; }
+:root[data-theme="dark"] .ble-toolbar button:nth-child(2) { color: #f4d899 !important; background: #4b4029 !important; }
+:root[data-theme="dark"] .ble-toolbar button:nth-child(3) { color: #d1ddd6 !important; background: #35413b !important; }
+:root[data-theme="dark"] .ble-toolbar label { color: #c0d0c8 !important; }
+:root[data-theme="dark"] .ble-modal input:not([type=checkbox]) { color: #e2ebe7 !important; background: #1c2622 !important; border-color: #485a53 !important; }
+:root[data-theme="dark"] .toast { color: #dce9e2; background: rgba(35,48,42,.96); border-color: #4a5e53; box-shadow: 0 14px 40px rgba(0,0,0,.36); }
+:root[data-theme="dark"] .toast.error { color: #ffd8d2; background: rgba(59,39,37,.97); border-color: #704642; }
+:root[data-theme="dark"] .toast-close { color: #b4c8bd; }
+:root[data-theme="dark"] .toast-close:hover { color: #f2faf5; background: #3a4c42; }
+
+.theme-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 78px; }
+.theme-toggle > span:first-child { font-size: 17px; line-height: 1; }
+.mobile-blocks-toggle { display: none; }
+
+@media (max-width: 900px) {
+  .app-header { min-width: 0; }
+  .project-input { min-width: 120px; }
+  .auth-status { font-size: 11px !important; }
+}
+
+@media (max-width: 620px) {
+  .app-header { position: relative; padding: 8px 58px 8px 10px !important; gap: 7px !important; min-height: 58px; }
+  .brand-logo { width: 34px; height: 34px; flex-basis: 34px; }
+  .brand-title { font-size: 12px; }
+  .project-input { flex: 1 1 100%; width: 100% !important; margin: 0 !important; min-width: 0; min-height: 38px; }
+  .auth-status { width: auto; margin: 0 !important; white-space: normal; }
+  .action-bar { max-height: 190px; padding: 8px !important; gap: 6px !important; }
+  .action-bar > * { margin: 0 !important; }
+  .action-bar label[for="device-id"] { width: auto; font-size: 10px !important; }
+  .device-input { flex: 1 1 45%; width: auto !important; min-height: 40px; padding: 7px !important; font-size: 13px !important; }
+  .app-btn { flex: 1 1 calc(25% - 6px); min-width: 66px; min-height: 42px; margin: 0 !important; padding: 7px !important; font-size: 11px !important; }
+  .theme-toggle { flex: 0 0 40px; }
+  .theme-toggle-label { display: none; }
+  .mobile-blocks-toggle { display: inline-flex; justify-content: center; align-items: center; }
+  .examples-select, .ble-open { flex: 1 1 calc(50% - 6px); min-height: 42px; font-size: 11px !important; }
+  .state-pill { min-height: 32px; padding: 6px 8px !important; font-size: 10px !important; }
+  .workspace-frame { min-height: 0; padding: 3px; }
+  .workspace-canvas { border-radius: 7px; }
+  .blocklyToolboxCategory { min-height: 42px; }
+  .blocklyToolboxCategoryLabel { font-size: 11px !important; }
+  .modal-backdrop { padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom)); }
+  .json-modal, .ble-modal { width: 100% !important; height: 100% !important; max-height: 100%; border-radius: 11px !important; }
+  .json-content { padding: 12px !important; font-size: 12px !important; }
+  .ble-input-row { padding-bottom: max(10px, env(safe-area-inset-bottom)) !important; }
+  .toast { right: max(12px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); }
+  .toast { max-height: 40dvh; overflow-y: auto; }
+}
+
+@media (max-height: 520px) and (max-width: 900px) {
+  .app-header { min-height: 46px; padding-block: 5px !important; }
+  .brand-logo { width: 30px; height: 30px; flex-basis: 30px; }
+  .action-bar { max-height: 130px; overflow-y: auto; }
+  .workspace-frame { min-height: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
