@@ -17,6 +17,16 @@ import {
 /* ==================== M10.14: Save/Load + Examples ==================== */
 
 const PROJECT_KEY = "stembrain_web_ide_project_name_v1";
+const THEME_KEY = "stembrain_web_ide_theme_v1";
+type AppTheme = "light" | "dark";
+
+function readInitialTheme(): AppTheme {
+  try {
+    return localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light";
+  } catch {
+    return "light";
+  }
+}
 
 /* ---- Block builders for example programs ---- */
 
@@ -419,7 +429,7 @@ function blockToInstruction(block: Blockly.Block): any | null {
     case "tone_play": {
       const tone_id = parseInt(block.getFieldValue("TONE"), 10);
       return { type: "tone_play", tone_id };
-    }  
+    }
     case "servo_angle": {
       const port  = parseInt(block.getFieldValue("PORT"), 10);
       const pin   = block.getFieldValue("PIN");
@@ -470,8 +480,11 @@ function serializeWorkspace(ws: Blockly.WorkspaceSvg, deviceId: string): any {
   };
 }
 
-function workspaceSignature(ws: Blockly.WorkspaceSvg) {
-  return JSON.stringify((Blockly as any).serialization.workspaces.save(ws));
+function workspaceSignature(ws: Blockly.WorkspaceSvg, deviceId: string) {
+  return JSON.stringify({
+    workspace: (Blockly as any).serialization.workspaces.save(ws),
+    deviceId,
+  });
 }
 
 const REQUIRED_VALUE_INPUTS: Record<string, string[]> = {
@@ -551,6 +564,7 @@ function validateProgram(workspace: Blockly.WorkspaceSvg, deviceId: string): str
 /* ==================== Status badge ==================== */
 
 type UploadState = "idle" | "uploading" | "waiting" | "stored" | "activated" | "failed";
+type DeviceAck = { status?: string; error_code?: string; error_reason?: string };
 function statusColor(s: UploadState) {
   return s === "uploading" || s === "waiting" ? "#b17a20" : s === "stored" ? "#507b78"
        : s === "activated" ? "#2e7d32" : s === "failed" ? "#c62828" : "#999";
@@ -563,25 +577,44 @@ function App() {
   const wsRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const [json, setJson] = useState("");
   const [userReady, setUserReady] = useState(false);
-  const [deviceId, setDeviceId] = useState("STEMBRAIN_");
+  const [deviceId, setDeviceId] = useState("STEMBRAIN_91F8");
   const [projectName, setProjectName] = useState("My Program");
   const [connState, setConnState] = useState<"idle" | "checking" | "online" | "offline">("idle");
-  const [status, setStatus] = useState("");
+  const [status, setStatusValue] = useState("");
+  const [statusVersion, setStatusVersion] = useState(0);
+  const [verificationErrors, setVerificationErrors] = useState<string[]>([]);
+  const setStatus = (message: string) => {
+    setStatusValue(message);
+    if (!message.startsWith("Verification failed")) setVerificationErrors([]);
+    if (message) setStatusVersion((version) => version + 1);
+  };
+  const [theme, setTheme] = useState<AppTheme>(readInitialTheme);
   const [txnId, setTxnId] = useState("");
   const [uploadState, setUploadState] = useState<UploadState>("idle");
-  const [ackData, setAckData] = useState<any>(null);
+  const [ackData, setAckData] = useState<DeviceAck | null>(null);
   const [verifiedSignature, setVerifiedSignature] = useState("");
   const verifiedSignatureRef = useRef("");
+  const uploadLockRef = useRef(false);
+  const uploadAckStatusRef = useRef<string | null>(null);
+  const connectAttemptRef = useRef(0);
   const [showBleTerminal, setShowBleTerminal] = useState(false);
   const [showJsonViewer, setShowJsonViewer] = useState(false);
+  const [mobileViewport, setMobileViewport] = useState(false);
+  const [mobileToolboxOpen, setMobileToolboxOpen] = useState(false);
 
   // Status feedback is presented consistently as a short-lived toast. Longer
   // device/upload states remain available through the compact toolbar pills.
   useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#151d1b" : "#f3f7f5");
+    try { localStorage.setItem(THEME_KEY, theme); } catch { /* Theme still applies for this session. */ }
+  }, [theme]);
+
+  useEffect(() => {
     if (!status) return;
-    const timeout = window.setTimeout(() => setStatus(""), 5200);
+    const timeout = window.setTimeout(() => setStatus(""), 6000);
     return () => window.clearTimeout(timeout);
-  }, [status]);
+  }, [status, statusVersion]);
 
   useEffect(() => {
     if (!blocklyDiv.current || wsRef.current) return;
@@ -708,7 +741,7 @@ function App() {
           ],
           previousStatement: null, nextStatement: null,
           colour: 20, tooltip: "Play a predefined tone on the built-in buzzer.",
-        },      
+        },
         {
           type: "servo_angle", message0: "Servo Port %1 %2 to %3\u00B0",
           args0: [
@@ -1100,6 +1133,7 @@ function App() {
       if (event.type === Blockly.Events.UI) return;
       verifiedSignatureRef.current = "";
       setVerifiedSignature("");
+      setStatus("");
       window.clearTimeout(reconcileTimer);
       reconcileTimer = window.setTimeout(() => reconcileHardwareResources(workspace), 0);
     });
@@ -1110,6 +1144,19 @@ function App() {
       wsRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 620px)");
+    const syncViewport = () => {
+      const compact = media.matches;
+      setMobileViewport(compact);
+      const toolbox = wsRef.current?.getToolbox();
+      if (toolbox) toolbox.setVisible(!compact || mobileToolboxOpen);
+    };
+    syncViewport();
+    media.addEventListener("change", syncViewport);
+    return () => media.removeEventListener("change", syncViewport);
+  }, [mobileToolboxOpen]);
 
   /* Load persisted project name on mount */
   useEffect(() => {
@@ -1127,16 +1174,22 @@ function App() {
     if (!txnId) return;
     const ackRef = ref(db, `devices/${deviceId}/ack/${txnId}`);
     const handler = (snap: any) => {
-      const val = snap.val();
+      const val = snap.val() as DeviceAck | null;
       setAckData(val);
       if (!val) return;
       if (val.status === "ACTIVATED") {
+        uploadAckStatusRef.current = val.status;
+        uploadLockRef.current = false;
         setUploadState("activated");
         setStatus("Upload complete. The program is now active on the device.");
       } else if (val.status === "STORED") {
+        uploadAckStatusRef.current = val.status;
+        uploadLockRef.current = false;
         setUploadState("stored");
         setStatus("The device received and stored the program.");
       } else if (val.status === "FAILED") {
+        uploadAckStatusRef.current = val.status;
+        uploadLockRef.current = false;
         setUploadState("failed");
         setStatus(`The device could not activate the program${val.error_reason ? `: ${val.error_reason}` : ". Review the device configuration and try again."}`);
       }
@@ -1154,16 +1207,18 @@ function App() {
   const handleVerify = () => {
     const workspace = wsRef.current;
     if (!workspace) return;
+    setStatus("");
+    verifiedSignatureRef.current = "";
+    setVerifiedSignature("");
     reconcileHardwareResources(workspace);
     const errors = validateProgram(workspace, deviceId);
     if (errors.length) {
-      verifiedSignatureRef.current = "";
-      setVerifiedSignature("");
-      setStatus(`Verification failed. Please fix the highlighted issues before uploading. ${errors[0]}`);
+      setVerificationErrors(errors);
+      setStatus("Verification failed. Please fix the listed issues before uploading.");
       return;
     }
 
-    const signature = workspaceSignature(workspace);
+    const signature = workspaceSignature(workspace, deviceId);
     verifiedSignatureRef.current = signature;
     setVerifiedSignature(signature);
     setStatus("Verification successful. Your program is ready to upload.");
@@ -1251,15 +1306,18 @@ function App() {
   };
 
   const handleConnect = async () => {
+    if (uploadLockRef.current) return;
     if (!deviceId.trim()) {
       setConnState("offline");
       setStatus("Enter a device ID before checking its connection.");
       return;
     }
+    const attempt = ++connectAttemptRef.current;
     setConnState("checking");
     setStatus("");
     try {
       const snap = await get(ref(db, `devices/${deviceId}/presence`));
+      if (attempt !== connectAttemptRef.current) return;
       if (!snap.exists()) {
         setConnState("offline");
         setStatus(`Device ${deviceId} was not found. Check the ID and try again.`);
@@ -1281,15 +1339,16 @@ function App() {
         setStatus("The device is currently offline.");
       }
     } catch (e: any) {
+      if (attempt !== connectAttemptRef.current) return;
       setConnState("offline");
       setStatus(`Unable to check the device connection. ${e.message}`);
     }
   };
 
   const handleUpload = async () => {
-    if (!wsRef.current || !userReady) return;
+    if (!wsRef.current || !userReady || uploadLockRef.current || connState !== "online") return;
     const workspace = wsRef.current;
-    const currentSignature = workspaceSignature(workspace);
+    const currentSignature = workspaceSignature(workspace, deviceId);
     if (!verifiedSignatureRef.current || verifiedSignatureRef.current !== currentSignature) {
       verifiedSignatureRef.current = "";
       setVerifiedSignature("");
@@ -1305,15 +1364,17 @@ function App() {
     }
     const obj = serializeWorkspace(workspace, deviceId);
     const newTxn = `web-txn-${Date.now()}`;
+    uploadLockRef.current = true;
+    uploadAckStatusRef.current = null;
     setJson(JSON.stringify(obj, null, 2));
     setAckData(null); setTxnId(newTxn);
     setUploadState("uploading");
     setStatus("");
     try {
       await set(ref(db, `devices/${deviceId}/inbox/${newTxn}`), obj);
-      setUploadState("waiting");
-      setStatus("");
+      if (!uploadAckStatusRef.current) setUploadState("waiting");
     } catch (e: any) {
+      uploadLockRef.current = false;
       setUploadState("failed"); setStatus(`Program upload failed. ${e.message}`);
     }
   };
@@ -1339,7 +1400,7 @@ function App() {
   );
 
   return (
-    <div className="app-shell" style={{ fontFamily: "system-ui, sans-serif", height: "100vh", display: "flex", flexDirection: "column" }}>
+    <div className="app-shell" data-theme={theme}>
 
       {/* ============ Header ============ */}
       <div className="app-header" style={{ padding: "10px 16px", background: "#1565c0", color: "#fff", display: "flex", alignItems: "center", gap: 12 }}>
@@ -1360,20 +1421,45 @@ function App() {
         <span className="auth-status" style={{ fontSize: 12, marginLeft: "auto", opacity: userReady ? 1 : 0.6 }}>
           {userReady ? "● Cloud session ready" : "○ Connecting to cloud…"}
         </span>
+        <button
+          className="app-btn theme-toggle"
+          type="button"
+          aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+          title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+          onClick={() => setTheme((current) => current === "light" ? "dark" : "light")}
+        >
+          <span aria-hidden="true">{theme === "light" ? "☾" : "☼"}</span>
+          <span className="theme-toggle-label">{theme === "light" ? "Dark" : "Light"}</span>
+        </button>
       </div>
 
       {/* ============ Toolbar ============ */}
       <div className="action-bar" style={{ padding: "10px 16px", background: "#e3f2fd", display: "flex", alignItems: "center", gap: 8, borderBottom: "1px solid #ccc", flexWrap: "wrap" }}>
         <label htmlFor="device-id" style={{ fontWeight: 600, fontSize: 14 }}>Device ID</label>
-        <input id="device-id" className="device-input" value={deviceId} onChange={(e) => setDeviceId(e.target.value)}
+        <input id="device-id" className="device-input" value={deviceId} disabled={uploadState === "uploading" || uploadState === "waiting"} onChange={(e) => {
+          const nextId = e.target.value;
+          setDeviceId(nextId);
+          setConnState("idle");
+          connectAttemptRef.current += 1;
+          verifiedSignatureRef.current = "";
+          setVerifiedSignature("");
+          setStatus("");
+        }}
           style={{ padding: "6px 10px", fontSize: 14, width: 180, border: "1px solid #999", borderRadius: 4 }} />
-        {btn("Connect", handleConnect, !userReady)}
+        {btn("Connect", handleConnect, !userReady || uploadState === "uploading" || uploadState === "waiting")}
         {btn("Verify", handleVerify)}
-        {btn("Upload", handleUpload, !userReady || connState !== "online" || !verifiedSignature)}
+        {btn("Upload", handleUpload, !userReady || connState !== "online" || !verifiedSignature || uploadState === "uploading" || uploadState === "waiting")}
         {btn("New", handleNewFile)}
         {btn("Save", handleSaveFile)}
         {btn("Open", handleOpenFile)}
         {btn("Get JSON", handleGetJson)}
+        {mobileViewport && (
+          <button className="app-btn mobile-blocks-toggle" type="button"
+            aria-expanded={mobileToolboxOpen}
+            onClick={() => setMobileToolboxOpen((open) => !open)}>
+            {mobileToolboxOpen ? "Close blocks" : "Blocks"}
+          </button>
+        )}
 
         <select
           className="examples-select"
@@ -1435,10 +1521,15 @@ function App() {
 
       {/* ============ Temporary notifications ============ */}
       {status && (
-        <div className={`toast ${/failed|unable|error|could not|not found|offline|enter a device/i.test(status) ? "error" : /successful|complete|ready|online|saved|loaded|ready/i.test(status) ? "success" : "info"}`}
+        <div key={statusVersion} className={`toast ${/failed|unable|error|could not|not found|offline|enter a device/i.test(status) ? "error" : /successful|complete|ready|online|saved|loaded|ready/i.test(status) ? "success" : "info"}`}
           role="status" aria-live="polite">
           <span className="toast-mark" aria-hidden="true">{/failed|unable|error|could not|not found|offline/i.test(status) ? "!" : /successful|complete|online|saved|loaded/i.test(status) ? "✓" : "i"}</span>
-          <span className="toast-message">{status}{ackData?.error_code ? ` (${ackData.error_code}${ackData.error_reason ? `: ${ackData.error_reason}` : ""})` : ""}</span>
+          <div className="toast-content">
+            <span className="toast-message">{status}{uploadState === "failed" && ackData?.error_code ? ` (${ackData.error_code}${ackData.error_reason ? `: ${ackData.error_reason}` : ""})` : ""}</span>
+            {verificationErrors.length > 0 && (
+              <ul className="toast-details">{verificationErrors.map((error, index) => <li key={`${index}-${error}`}>{error}</li>)}</ul>
+            )}
+          </div>
           <button className="toast-close" aria-label="Dismiss notification" onClick={() => setStatus("")}>×</button>
         </div>
       )}
