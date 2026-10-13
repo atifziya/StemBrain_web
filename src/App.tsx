@@ -416,6 +416,10 @@ function blockToInstruction(block: Blockly.Block): any | null {
       const mode = block.getFieldValue("MODE");
       return { type: "buzzer", mode };
     }
+    case "tone_play": {
+      const tone_id = parseInt(block.getFieldValue("TONE"), 10);
+      return { type: "tone_play", tone_id };
+    }  
     case "servo_angle": {
       const port  = parseInt(block.getFieldValue("PORT"), 10);
       const pin   = block.getFieldValue("PIN");
@@ -559,7 +563,7 @@ function App() {
   const wsRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const [json, setJson] = useState("");
   const [userReady, setUserReady] = useState(false);
-  const [deviceId, setDeviceId] = useState("STEMBRAIN_91F8");
+  const [deviceId, setDeviceId] = useState("STEMBRAIN_");
   const [projectName, setProjectName] = useState("My Program");
   const [connState, setConnState] = useState<"idle" | "checking" | "online" | "offline">("idle");
   const [status, setStatus] = useState("");
@@ -678,6 +682,33 @@ function App() {
           previousStatement: null, nextStatement: null,
           colour: 20, tooltip: "Built-in buzzer.",
         },
+        {
+          type: "tone_play",
+          message0: "Play tone %1",
+          args0: [
+            { type: "field_dropdown", name: "TONE",
+              options: [
+                ["Beep Short",  "0"],
+                ["Beep Long",   "1"],
+                ["Double Beep", "2"],
+                ["Triple Beep", "3"],
+                ["Success",     "4"],
+                ["Error",       "5"],
+                ["Warning",     "6"],
+                ["Alarm",       "7"],
+                ["Doorbell",    "8"],
+                ["Coin",        "9"],
+                ["Power Up",   "10"],
+                ["Power Down", "11"],
+                ["Chirp",      "12"],
+                ["Buzz Low",   "13"],
+                ["OK",         "14"],
+                ["Notify",     "15"],
+              ] },
+          ],
+          previousStatement: null, nextStatement: null,
+          colour: 20, tooltip: "Play a predefined tone on the built-in buzzer.",
+        },      
         {
           type: "servo_angle", message0: "Servo Port %1 %2 to %3\u00B0",
           args0: [
@@ -985,6 +1016,10 @@ function App() {
               { kind: "block", type: "led_out" },
               { kind: "block", type: "buzzer_simple" },
               { kind: "block", type: "servo_angle" },
+            ] },
+          { kind: "category", name: "Tone", colour: "20",
+            contents: [
+              { kind: "block", type: "tone_play" },
             ] },
           { kind: "category", name: "Bluetooth", colour: "185",
             contents: [
