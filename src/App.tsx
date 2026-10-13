@@ -36,8 +36,10 @@ const waitB = (ms: number) => ({
   type: "delay_ms",
   inputs: { MS: { block: num(ms) } },
 });
-const motorB = (m: number, dir: string) => ({
-  type: "motor_control", fields: { MOTOR: String(m), DIR: dir },
+const motorB = (m: number, dir: string, speed: number = 100) => ({
+  type: "motor_control",
+  fields: { MOTOR: String(m), DIR: dir },
+  inputs: { SPEED: { block: num(speed) } },
 });
 const buzzerB = (mode: "on" | "off") => ({
   type: "buzzer_simple", fields: { MODE: mode },
@@ -63,11 +65,16 @@ const printValueB = (value: any) => ({
   type: "print_num", inputs: { VAL: { block: value } },
 });
 
-const cmpB = (op: string, a: any, b: any) => ({
-  type: "logic_compare",
-  fields: { OP: op },
-  inputs: { A: { block: a }, B: { block: b } },
-});
+const cmpB = (op: string, a: any, b: any) => {
+  const fieldOperator: Record<string, string> = {
+    eq: "EQ", ne: "NEQ", lt: "LT", le: "LTE", gt: "GT", ge: "GTE",
+  };
+  return {
+    type: "logic_compare",
+    fields: { OP: fieldOperator[op] ?? op },
+    inputs: { A: { block: a }, B: { block: b } },
+  };
+};
 
 /* M10.14-fix: controls_if with else uses `extraState.hasElse` */
 const ifB = (cond: any, thenBlocks: any[], elseBlocks?: any[]) => {
@@ -337,7 +344,9 @@ function blockToInstruction(block: Blockly.Block): any | null {
     case "motor_control": {
       const motor = parseInt(block.getFieldValue("MOTOR"), 10);
       const dir = block.getFieldValue("DIR");
-      return { type: "motor", motor, dir };
+      const speed = blockToExpr(block.getInputTargetBlock("SPEED"))
+                    || { type: "num", value: 100 };
+      return { type: "motor", motor, dir, speed };
     }
     case "delay_ms": {
       const ms = blockToExpr(block.getInputTargetBlock("MS")) || num0();
@@ -368,12 +377,12 @@ function blockToInstruction(block: Blockly.Block): any | null {
     case "oled_print_text": {
       const line = parseInt(block.getFieldValue("LINE"), 10);
       const t = block.getFieldValue("TEXT") || "";
-      return { type: "oled_print", line, size: "Big", mode: "text", text: t };
+      return { type: "oled_print", line, size: "big", mode: "text", text: t };
     }
     case "oled_print_num": {
       const line = parseInt(block.getFieldValue("LINE"), 10);
       const v = blockToExpr(block.getInputTargetBlock("VAL")) || num0();
-      return { type: "oled_print", line, size: "Big", mode: "number", value: v };
+      return { type: "oled_print", line, size: "big", mode: "number", value: v };
     }
     case "oled_clear":
       return { type: "oled_clear" };
@@ -468,6 +477,7 @@ const REQUIRED_VALUE_INPUTS: Record<string, string[]> = {
   delay_ms: ["MS"], print_num: ["VAL"], ble_send_num: ["VAL"], repeat_n: ["COUNT"], wait_until: ["COND"],
   oled_print_num: ["VAL"],
   oled_print_num_sized: ["VAL"],
+  motor_control: ["SPEED"],
 };
 
 const BLOCK_NAMES: Record<string, string> = {
@@ -531,30 +541,6 @@ function validateProgram(workspace: Blockly.WorkspaceSvg, deviceId: string): str
     }
   }
 
-  /* M10.15c: OLED line uniqueness — each of the 4 lines can only
-   * be claimed by ONE OLED block (print text/num or emoji). */
-  const usedOledLines = new Map<number, string>();
-  /* M10.15d: emoji is fullscreen — excluded from line-uniqueness */
-  const OLED_BLOCK_TYPES = new Set([
-    "oled_print_text",
-    "oled_print_text_sized",
-    "oled_print_num",
-    "oled_print_num_sized",
-  ]);
-  for (const block of blocks) {
-    if (OLED_BLOCK_TYPES.has(block.type)) {
-      const line = parseInt(block.getFieldValue("LINE"), 10);
-      const blockName = blockDisplayName(block);
-      if (usedOledLines.has(line)) {
-        errors.push(
-          `OLED line ${line} is used by two blocks. Each line can only be used once.`
-        );
-      } else {
-        usedOledLines.set(line, blockName);
-      }
-    }
-  }
-
   return [...new Set(errors)];
 }
 
@@ -599,17 +585,20 @@ function App() {
     if (!Blockly.Blocks['motor_control']) {
 
       Blockly.defineBlocksWithJsonArray([
-        {
-          type: "motor_control", message0: "Motor %1 %2",
-          args0: [
-            { type: "field_dropdown", name: "MOTOR",
-              options: [["1","1"],["2","2"],["3","3"],["4","4"]] },
-            { type: "field_dropdown", name: "DIR",
-              options: [["Forward","fwd"],["Backward","back"],["Stop","stop"]] },
-          ],
-          previousStatement: null, nextStatement: null,
-          colour: 160, tooltip: "Control a motor.",
-        },
+      {
+        type: "motor_control",
+        message0: "Motor %1 %2 at speed %3 %%",
+        args0: [
+          { type: "field_dropdown", name: "MOTOR",
+            options: [["1","1"],["2","2"],["3","3"],["4","4"]] },
+          { type: "field_dropdown", name: "DIR",
+            options: [["Forward","fwd"],["Backward","back"],["Stop","stop"]] },
+          { type: "input_value", name: "SPEED", check: "Number" },
+        ],
+        inputsInline: true,
+        previousStatement: null, nextStatement: null,
+        colour: 160, tooltip: "Control a motor. Speed is 0–100%.",
+      },
         {
           type: "ble_enable", message0: "Enable Bluetooth",
           previousStatement: null, nextStatement: null,
@@ -810,7 +799,7 @@ function App() {
             { type: "input_value", name: "B", check: "Number" },
           ],
           inputsInline: true, output: "Number", colour: 240,
-          tooltip: "Smaller of two values.",
+          tooltip: "smaller of two values.",
         },
         {
           type: "math_max_custom", message0: "max %1 %2",
@@ -853,11 +842,11 @@ function App() {
             { type: "field_dropdown", name: "LINE",
               options: [["1","1"],["2","2"],["3","3"],["4","4"]] },
             { type: "field_dropdown", name: "SIZE",
-              options: [["Big","Big"],["Small","Small"]] },
+              options: [["big","big"],["small","small"]] },
             { type: "field_input", name: "TEXT", text: "Hello" },
           ],
           previousStatement: null, nextStatement: null,
-          colour: 300, tooltip: "Display text on OLED line 1-4 (Big or Small).",
+          colour: 300, tooltip: "Display text on OLED line 1-4 (big or small).",
         },
         {
           type: "oled_print_num_sized",
@@ -866,11 +855,11 @@ function App() {
             { type: "field_dropdown", name: "LINE",
               options: [["1","1"],["2","2"],["3","3"],["4","4"]] },
             { type: "field_dropdown", name: "SIZE",
-              options: [["Big","Big"],["Small","Small"]] },
+              options: [["big","big"],["small","small"]] },
             { type: "input_value", name: "VAL", check: "Number" },
           ],
           previousStatement: null, nextStatement: null,
-          colour: 300, tooltip: "Display a number on OLED line 1-4 (Big or Small).",
+          colour: 300, tooltip: "Display a number on OLED line 1-4 (big or small).",
         },
         {
           type: "oled_emoji", message0: "OLED emoji %1",
@@ -973,7 +962,13 @@ function App() {
               { kind: "block", type: "delay_ms" },
             ] },
           { kind: "category", name: "Motors", colour: "205",
-            contents: [{ kind: "block", type: "motor_control" }] },
+            contents: [
+              { kind: "block", type: "motor_control",
+                inputs: {
+                  SPEED: { shadow: { type: "math_number", fields: { NUM: 100 } } },
+                },
+              },
+            ] },
           { kind: "category", name: "Sensors", colour: "28",
             contents: [
               { kind: "block", type: "sensor_ultrasonic" },
@@ -998,11 +993,6 @@ function App() {
               { kind: "block", type: "ble_send_num" },
               { kind: "block", type: "ble_recv" },
               { kind: "block", type: "ble_connected" },
-            ] },
-          { kind: "category", name: "Print", colour: "150",
-            contents: [
-              { kind: "block", type: "print_text" },
-              { kind: "block", type: "print_num" },
             ] },
           { kind: "category", name: "Display", colour: "325",
             contents: [
@@ -1478,5 +1468,3 @@ function App() {
 }
 
 export default App;
-
-
