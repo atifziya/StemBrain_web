@@ -27,7 +27,13 @@ export default function BleTerminal({ onClose }: BleTerminalProps) {
   const [connected, setConnected] = useState(false);
   const [deviceName, setDeviceName] = useState("");
   const [status, setStatus] = useState("Disconnected");
-  const [log, setLog] = useState<LogLine[]>([]);
+  const [log, setLog] = useState<LogLine[]>(() => [{
+    ts: Date.now(),
+    dir: "sys",
+    text: typeof navigator !== "undefined" && "bluetooth" in navigator
+      ? "Terminal ready. Select Connect to find a STEMBRAIN device."
+      : "Bluetooth access is unavailable in this browser. Open this app in Chrome or Edge.",
+  }]);
   const [input, setInput] = useState("");
   const [autoScroll, setAutoScroll] = useState(true);
   const [appendNewline, setAppendNewline] = useState(true);
@@ -35,18 +41,22 @@ export default function BleTerminal({ onClose }: BleTerminalProps) {
 
   const deviceRef = useRef<any>(null);
   const rxCharRef = useRef<any>(null);   // write (web -> device)
+  const txCharRef = useRef<EventTarget | null>(null);   // notification (device -> web)
+  const receiveHandlerRef = useRef<EventListener | null>(null);
+  const disconnectHandlerRef = useRef<EventListener | null>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   const addLog = (dir: LogLine["dir"], text: string) => {
     setLog((prev) => [...prev, { ts: Date.now(), dir, text }]);
   };
 
-  useEffect(() => {
-    if (!("bluetooth" in navigator)) {
-      addLog("err", "Bluetooth access is unavailable in this browser. Open this app in Chrome or Edge.");
-      return;
+  useEffect(() => () => {
+    if (txCharRef.current && receiveHandlerRef.current) {
+      txCharRef.current.removeEventListener("characteristicvaluechanged", receiveHandlerRef.current);
     }
-    addLog("sys", "Terminal ready. Select Connect to find a STEMBRAIN device.");
+    if (deviceRef.current && disconnectHandlerRef.current) {
+      deviceRef.current.removeEventListener("gattserverdisconnected", disconnectHandlerRef.current);
+    }
   }, []);
 
   useEffect(() => {
@@ -70,6 +80,15 @@ export default function BleTerminal({ onClose }: BleTerminalProps) {
   };
 
   const handleDisconnect = () => {
+    if (deviceRef.current && disconnectHandlerRef.current) {
+      deviceRef.current.removeEventListener("gattserverdisconnected", disconnectHandlerRef.current);
+      disconnectHandlerRef.current = null;
+    }
+    if (txCharRef.current && receiveHandlerRef.current) {
+      txCharRef.current.removeEventListener("characteristicvaluechanged", receiveHandlerRef.current);
+      txCharRef.current = null;
+      receiveHandlerRef.current = null;
+    }
     try {
       if (deviceRef.current?.gatt?.connected) {
         deviceRef.current.gatt.disconnect();
@@ -96,12 +115,16 @@ export default function BleTerminal({ onClose }: BleTerminalProps) {
       deviceRef.current = bleDevice;
       setDeviceName(bleDevice.name || "Unknown");
 
-      bleDevice.addEventListener("gattserverdisconnected", () => {
+      const onDisconnected: EventListener = () => {
         rxCharRef.current = null;
+        txCharRef.current = null;
+        receiveHandlerRef.current = null;
         setConnected(false);
         setStatus("Disconnected");
         addLog("sys", "Device disconnected");
-      });
+      };
+      disconnectHandlerRef.current = onDisconnected;
+      bleDevice.addEventListener("gattserverdisconnected", onDisconnected);
 
       addLog("sys", `Connecting to ${bleDevice.name}...`);
       setStatus("Connecting...");
@@ -118,6 +141,8 @@ export default function BleTerminal({ onClose }: BleTerminalProps) {
       // TX char (device -> web, we SUBSCRIBE to notify)
       const txChar = await service.getCharacteristic(TX_UUID);
       await txChar.startNotifications();
+      txCharRef.current = txChar;
+      receiveHandlerRef.current = handleReceiveData;
       txChar.addEventListener("characteristicvaluechanged", handleReceiveData);
 
       setConnected(true);
@@ -137,6 +162,15 @@ export default function BleTerminal({ onClose }: BleTerminalProps) {
       if (!dev) {
         addLog("err", "No device is available to forget. Connect to a device first.");
         return;
+      }
+      if (disconnectHandlerRef.current) {
+        dev.removeEventListener("gattserverdisconnected", disconnectHandlerRef.current);
+        disconnectHandlerRef.current = null;
+      }
+      if (txCharRef.current && receiveHandlerRef.current) {
+        txCharRef.current.removeEventListener("characteristicvaluechanged", receiveHandlerRef.current);
+        txCharRef.current = null;
+        receiveHandlerRef.current = null;
       }
       if (dev.gatt?.connected) dev.gatt.disconnect();
       rxCharRef.current = null;
@@ -293,15 +327,12 @@ export default function BleTerminal({ onClose }: BleTerminalProps) {
           {log.map((line, i) => (
             <div
               key={i}
+              className={`ble-line ${line.dir}`}
               style={{
                 marginBottom: 2, whiteSpace: "pre-wrap", wordBreak: "break-all",
-                color:
-                  line.dir === "in"   ? "#28795f" :
-                  line.dir === "out"  ? "#8b5c2d" :
-                  line.dir === "err"  ? "#ad4646" : "#587168",
               }}
             >
-              <span style={{ color: "#879b91", marginRight: 8 }}>{fmtTime(line.ts)}</span>
+              <span className="ble-line-time" style={{ marginRight: 8 }}>{fmtTime(line.ts)}</span>
               <span style={{ marginRight: 6, opacity: 0.7 }}>
                 {line.dir === "in" ? "◀" : line.dir === "out" ? "▶" :
                  line.dir === "err" ? "✗" : "•"}
